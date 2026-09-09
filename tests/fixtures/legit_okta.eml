@@ -1,0 +1,15 @@
+Return-Path: <noreply@okta.com>
+Received: from mail.okta.com (mail.okta.com [52.34.12.9]) by mx.ut.edu with ESMTPS id 2B7d1; Fri, 5 Sep 2026 14:02:10 +0000
+Authentication-Results: mx.ut.edu; spf=pass smtp.mailfrom=okta.com; dkim=pass header.d=okta.com; dmarc=pass (p=REJECT) header.from=okta.com
+From: Okta <noreply@okta.com>
+To: r.pandin@spartans.ut.edu
+Subject: MFA enrollment confirmed
+Date: Fri, 5 Sep 2026 14:02:09 +0000
+Message-ID: <a11b2c3d@okta.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your MFA enrollment is complete.</p>
+<p><a href="https://ut.okta.com/enduser/settings">ut.okta.com/enduser/settings</a></p>
+</body></html>

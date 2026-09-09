@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Angler</title>
+<style>
+  :root{
+    --ground:#EFF2F1; --surface:#fff; --surface-2:#F6F8F7;
+    --ink:#141E1C; --ink-2:#4A5B57; --ink-3:#7C8D89;
+    --line:#D8DEDC; --line-strong:#BFC8C5; --accent:#0D6874; --crit:#AC3A30;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0D1416; --surface:#141D20; --surface-2:#192427;
+      --ink:#E3EAE8; --ink-2:#9CADAA; --ink-3:#748582;
+      --line:#253336; --line-strong:#33454A; --accent:#4FBECC; --crit:#E5786C;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 20px 72px}
+  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:24px;margin:0;letter-spacing:-.02em}
+  .tag{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--ink-3);border:1px solid var(--line);border-radius:99px;padding:3px 9px}
+  .lede{color:var(--ink-2);margin:0 0 24px;max-width:60ch}
+  .drop{border:2px dashed var(--line-strong);border-radius:10px;background:var(--surface-2);
+    padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .drop.over{border-color:var(--accent);background:var(--surface)}
+  .drop h2{margin:0 0 6px;font-size:17px}
+  .drop p{margin:0;color:var(--ink-2);font-size:13.5px}
+  .drop:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .panel{margin-top:18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+  .panel h3{margin:0;padding:11px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--ink-2);font-weight:500}
+  .panel .body{padding:14px}
+  dl{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;margin:0;font-family:var(--mono);font-size:12.5px}
+  dt{color:var(--ink-3);font-size:11px}
+  dd{margin:0;word-break:break-word}
+  ol{margin:0;padding-left:20px;font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+  ol li{margin-bottom:6px}
+  ol b{color:var(--ink)}
+  .mismatch{color:var(--crit)}
+  pre{margin:0;padding:14px;background:var(--surface-2);border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;color:var(--ink-2)}
+  .err{color:var(--crit);font-size:13.5px;margin-top:14px}
+  [hidden]{display:none!important}
+  @media (max-width:520px){dl{grid-template-columns:1fr;gap:2px}dt{margin-top:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Angler</h1><span class="tag">M1 · parsing only</span></header>
+  <p class="lede">Drop a raw <code>.eml</code> file. Nothing is scored yet — this milestone
+  extracts the evidence. Attachments are hashed, never opened, and no link is ever requested.</p>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload an .eml file">
+    <h2>Drop an .eml file here</h2>
+    <p>or press Enter to choose one · up to 25 MB</p>
+  </div>
+  <input type="file" id="picker" accept=".eml,.msg,message/rfc822" hidden>
+
+  <p class="err" id="error" hidden></p>
+
+  <div id="out" hidden>
+    <div class="panel">
+      <h3>Envelope</h3>
+      <div class="body"><dl id="envelope"></dl></div>
+    </div>
+    <div class="panel">
+      <h3>Routing chain — oldest hop first</h3>
+      <div class="body"><ol id="hops"></ol></div>
+    </div>
+    <div class="panel">
+      <h3>Links</h3>
+      <div class="body"><ol id="links"></ol></div>
+    </div>
+    <div class="panel">
+      <h3>Raw response</h3>
+      <pre id="raw"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+const drop = document.getElementById('drop');
+const picker = document.getElementById('picker');
+const out = document.getElementById('out');
+const errBox = document.getElementById('error');
+
+drop.addEventListener('click', () => picker.click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }});
+picker.addEventListener('change', () => { if (picker.files[0]) send(picker.files[0]); });
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) send(f); });
+
+async function send(file) {
+  errBox.hidden = true;
+  const data = new FormData();
+  data.append('file', file);
+  try {
+    const res = await fetch('/v1/parse', { method: 'POST', body: data });
+    const json = await res.json();
+    if (!res.ok) { fail(json.detail || 'That message could not be parsed.'); return; }
+    render(json);
+  } catch (e) {
+    fail('The request never reached the server. Is it still running?');
+  }
+}
+
+function fail(message) { out.hidden = true; errBox.textContent = message; errBox.hidden = false; }
+
+function esc(s) { return String(s ?? '—').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+function addr(list) { return (list && list.length) ? list.map(a => esc(a.address)).join(', ') : '—'; }
+
+function render(d) {
+  const fromDomain = d.from_addresses[0] && d.from_addresses[0].domain;
+  const replyDomain = d.reply_to[0] && d.reply_to[0].domain;
+  const rows = [
+    ['Subject', esc(d.subject)],
+    ['From', addr(d.from_addresses)],
+    ['Reply-To', replyDomain && replyDomain !== fromDomain
+        ? '<span class="mismatch">' + addr(d.reply_to) + '</span>' : addr(d.reply_to)],
+    ['Return-Path', esc(d.return_path)],
+    ['To', addr(d.to_addresses)],
+    ['Date', esc(d.date)],
+    ['Message-ID', esc(d.message_id)],
+    ['Auth-Results', esc(d.authentication_results)],
+    ['Origin IP', esc(d.origin_ip)],
+    ['Attachments', d.attachments.length ? d.attachments.map(a => esc(a.filename) + ' · ' + a.sha256.slice(0,16)).join('<br>') : 'none']
+  ];
+  document.getElementById('envelope').innerHTML =
+    rows.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+
+  document.getElementById('hops').innerHTML = d.hops.length
+    ? d.hops.map(h => '<li><b>' + esc(h.ip) + '</b> — from ' + esc(h.from_host) + ' by ' + esc(h.by_host) + '<br>' + esc(h.timestamp) + '</li>').join('')
+    : '<li>No Received headers.</li>';
+
+  document.getElementById('links').innerHTML = d.links.length
+    ? d.links.map(l => {
+        const lies = l.anchor_text && l.host && !l.anchor_text.includes(l.host);
+        return '<li><b>' + esc(l.host) + '</b>' + (lies ? ' <span class="mismatch">shown as ' + esc(l.anchor_text) + '</span>' : '')
+             + '<br>' + esc(l.url) + '</li>';
+      }).join('')
+    : '<li>No links.</li>';
+
+  document.getElementById('raw').textContent = JSON.stringify(d, null, 2);
+  out.hidden = false;
+}
+</script>
+</body>
+</html>

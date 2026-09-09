@@ -1,0 +1,34 @@
+Return-Path: <bounce@mail-relay-7t2.xyz>
+Received: from mx.ut.edu (mx.ut.edu [104.47.55.12]) by mailbox.ut.edu with ESMTPS id 9Q1x4; Mon, 8 Sep 2026 03:14:31 +0000
+Received: from relay-7t2.xyz (relay-7t2.xyz [91.219.238.12]) by mx.ut.edu with ESMTPS id 4X9k2; Mon, 8 Sep 2026 03:14:22 +0000
+Received: from localhost (unknown [185.243.115.44]) by relay-7t2.xyz with SMTP id 7t2a; Mon, 8 Sep 2026 03:14:07 +0000
+Authentication-Results: mx.ut.edu; spf=softfail smtp.mailfrom=mail-relay-7t2.xyz; dkim=none; dmarc=fail (p=QUARANTINE) header.from=rnicrosoft-account.com
+From: "Microsoft 365 Security" <security@rnicrosoft-account.com>
+Reply-To: helpdesk@mail-relay-7t2.xyz
+To: r.pandin@spartans.ut.edu
+Subject: Your password expires in 24 hours
+Date: Mon, 8 Sep 2026 03:14:07 +0300
+Message-ID: <7t2.0091@mail-relay-7t2.xyz>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b0undary7t2"
+
+--b0undary7t2
+Content-Type: text/plain; charset="utf-8"
+
+Your Microsoft 365 password expires in 24 hours. Sessions on all devices
+will be signed out unless you verify your account immediately.
+
+Verify now: https://login.rnicrosoft-account.com/auth/verify?u=rpandin
+
+Microsoft 365 Account Security Team
+
+--b0undary7t2
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your Microsoft 365 password expires in <b>24 hours</b>.</p>
+<p><a href="https://login.rnicrosoft-account.com/auth/verify?u=rpandin">https://login.microsoftonline.com</a></p>
+<p><a href="https://t.mail-relay-7t2.xyz/unsub?id=91">Unsubscribe</a></p>
+</body></html>
+
+--b0undary7t2--
