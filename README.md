@@ -41,5 +41,5 @@ The response shape is `ParsedEmail` in `app/models.py`.
 ## Limitations
 
 Known and deliberate at this milestone: authentication results are captured
-verbatim but not evaluated, `img` sources are not extracted, and messages
+verbatim but not evaluated, and messages
 inside `message/rfc822` attachments are not parsed recursively.

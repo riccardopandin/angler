@@ -31,6 +31,7 @@ class _AnchorExtractor(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.anchors: list[tuple[str, str]] = []
+        self.images: list[str] = []
         self._href: str | None = None
         self._text: list[str] = []
 
@@ -39,7 +40,10 @@ class _AnchorExtractor(HTMLParser):
             href = dict(attrs).get("href")
             self._href = href if href else None
             self._text = []
-
+        elif tag.lower() == "img":
+            src = dict(attrs).get("src")
+            if src:
+                self.images.append(src)
     def handle_data(self, data: str) -> None:
         if self._href is not None:
             self._text.append(data)
@@ -133,7 +137,13 @@ def _links(text_body: str | None, html_body: str | None) -> list[Link]:
                     source="html",
                 )
             )
-
+        for src in extractor.images:
+            if not src.lower().startswith(("http://", "https://")):
+                continue
+            if (src, None) in seen:
+                continue
+            seen.add((src, None))
+            found.append(Link(url=src, host=_host_of(src), anchor_text=None, source="img"))
     if text_body:
         for url in _URL_RE.findall(text_body):
             url = url.rstrip(".,;:)")

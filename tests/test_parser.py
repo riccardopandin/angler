@@ -38,7 +38,7 @@ def test_authentication_results_are_captured_verbatim(phish: bytes) -> None:
 
 def test_anchor_text_can_disagree_with_href(phish: bytes) -> None:
     parsed = parse_eml(phish)
-    assert len(parsed.links) == 2
+    assert len(parsed.links) == 3
     login = parsed.links[0]
     assert login.host == "login.rnicrosoft-account.com"
     assert login.anchor_text == "https://login.microsoftonline.com"
@@ -61,3 +61,11 @@ def test_a_clean_message_parses_too(legit: bytes) -> None:
     assert parsed.reply_to == []
     assert len(parsed.hops) == 1
     assert len(parsed.links) == 1
+
+
+def test_tracking_pixel_is_extracted(phish: bytes) -> None:
+    parsed = parse_eml(phish)
+    pixels = [link for link in parsed.links if link.source == "img"]
+    assert len(pixels) == 1
+    assert pixels[0].url == "https://t.mail-relay-7t2.xyz/o.gif"
+
