@@ -5,6 +5,10 @@ evidence needed to judge it: envelope and header mismatches, the routing
 chain read oldest hop first, every link with the text that hid it, and
 attachment hashes.
 
+**Live: https://angler.onrender.com** - hosted on Render's free tier, so the
+first request after 15 minutes of inactivity takes ~50 seconds while the
+container wakes up. Subsequent requests are immediate.
+
 **Status: M1 - deterministic parsing.** No scoring and no model yet; see
 `SPEC.md` for the milestone plan.
 
