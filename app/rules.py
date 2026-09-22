@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from app.models import AuthResults, Finding, ParsedEmail
+from app.models import AuthResults, Finding, ParsedEmail, Verdict
 
 
 def _method(raw: str, name: str) -> str | None:
@@ -216,3 +216,55 @@ def findings_for(email: ParsedEmail) -> list[Finding]:
 
     found.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
     return found
+
+
+# ---------------------------------------------------------------------------
+# Rule 5: scoring
+# ---------------------------------------------------------------------------
+
+# How many points each finding contributes to the risk score.
+#
+# Every false positive costs an analyst's time, and a tool that cries wolf
+# gets switched off - so signals with innocent explanations stay cheap.
+# The tests check that these choices are internally consistent, not that they
+# match any particular number.
+_WEIGHTS: dict[str, int] = {
+    # A domain that exists to impersonate a brand has no innocent explanation.
+    "LOOKALIKE_DOMAIN": 45,
+    "PUNYCODE_DOMAIN": 40,
+    # DMARC failing means alignment failed, which subsumes SPF. Scored once.
+    "DMARC_FAIL": 35,
+    # Deliberately cheap: forwarders and mailing lists break these on
+    # legitimate mail constantly. Weighted high, they quarantine newsletters.
+    "DKIM_FAIL": 15,
+    "DKIM_MISSING": 10,
+    "SPF_FAIL": 10,
+    # Real signal, but support desks and ticketing systems do this legitimately.
+    "REPLY_TO_MISMATCH": 15,
+}
+
+# Above this, the rules alone are confident enough and the model is never
+# asked to classify - it only writes the explanation (M3).
+PHISHING_AT = 70
+
+# Between the two, the message is ambiguous. This is the band where the model
+# earns its cost.
+SUSPICIOUS_AT = 35
+
+
+def score_for(findings: list[Finding]) -> int:
+    """Add up the weights of everything that fired, capped at 100."""
+    return min(sum(_WEIGHTS.get(f.code, 0) for f in findings), 100)
+
+
+def label_for_score(score: int) -> str:
+    if score >= PHISHING_AT:
+        return "phishing"
+    if score >= SUSPICIOUS_AT:
+        return "suspicious"
+    return "clean"
+
+
+def verdict_for(findings: list[Finding]) -> Verdict:
+    score = score_for(findings)
+    return Verdict(score=score, label=label_for_score(score), resolved_by="rules")

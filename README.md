@@ -9,8 +9,15 @@ attachment hashes.
 first request after 15 minutes of inactivity takes ~50 seconds while the
 container wakes up. Subsequent requests are immediate.
 
-**Status: M1 - deterministic parsing.** No scoring and no model yet; see
-`SPEC.md` for the milestone plan.
+**Status: M3 - rules, scoring and a written rationale.** See `SPEC.md` for
+the milestone plan.
+
+The model never decides a confident verdict. Deterministic rules score every
+message first; the model writes the explanation, and may only propose a
+different label inside the ambiguous 35-69 band. Message content reaches the
+model as data in one labelled field, never concatenated into instructions.
+With no `ANTHROPIC_API_KEY` set, the tool falls back to a deterministic
+rationale and keeps working.
 
 ## Run it
 

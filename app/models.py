@@ -74,9 +74,33 @@ class Finding(BaseModel):
     detail: str
 
 
+class Verdict(BaseModel):
+    """The aggregate judgement, and how it was reached."""
+
+    score: int            # 0-100
+    label: str            # "phishing", "suspicious" or "clean"
+    resolved_by: str      # "rules" or "model"
+
+
+class Rationale(BaseModel):
+    """The written explanation that accompanies a verdict."""
+
+    summary: str
+    reasoning_steps: list[str] = Field(default_factory=list)
+    recommended_action: str
+    # Set when the sender's own text tried to give the model instructions.
+    manipulation_attempt_detected: bool = False
+    # "phishing", "suspicious", "clean", or "no_change". Only honoured when the
+    # rules left the message in the ambiguous band.
+    adjusted_label: str = "no_change"
+    written_by: str = "rules"  # "claude" or "rules"
+
+
 class Analysis(BaseModel):
     """Everything the tool concluded about one message."""
 
     email: ParsedEmail
     auth: AuthResults
+    verdict: Verdict
+    rationale: Rationale | None = None
     findings: list[Finding] = Field(default_factory=list)

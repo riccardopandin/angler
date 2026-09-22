@@ -77,6 +77,36 @@
   .status{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
   .status.err{color:var(--high)}
 
+  /* rationale */
+  .rsum{font-size:14.5px;margin-bottom:9px}
+  .rsteps{margin:0 0 11px;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--ink-2)}
+  .raction{font-size:13.5px;padding-top:10px;border-top:1px solid var(--line)}
+  .raction b{color:var(--accent)}
+  .rwarn{margin-top:11px;font-size:13px;color:var(--high);border:1px solid var(--high);
+    background:var(--high-soft);border-radius:8px;padding:9px 11px}
+
+  /* verdict */
+  .verdict{display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;margin-top:18px;
+    border:1px solid var(--line-2);border-radius:12px;background:var(--surface);padding:18px 20px;box-shadow:var(--shadow)}
+  .verdict.phishing{border-color:var(--high);background:var(--high-soft)}
+  .verdict.suspicious{border-color:var(--med);background:var(--med-soft)}
+  .verdict.clean{border-color:var(--ok);background:var(--ok-soft)}
+  .vscore{flex:none;min-width:102px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding-right:20px;border-right:1px solid var(--line-2)}
+  .verdict.phishing .vscore{border-color:var(--high)}
+  .verdict.suspicious .vscore{border-color:var(--med)}
+  .verdict.clean .vscore{border-color:var(--ok)}
+  .vnum{font-family:var(--mono);font-weight:600;font-size:42px;line-height:1;font-variant-numeric:tabular-nums}
+  .vden{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--ink-2);margin-top:4px}
+  .vbody{flex:1;min-width:210px;display:flex;flex-direction:column;gap:5px;justify-content:center}
+  .vhead{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .vtitle{font-size:20px;font-weight:700;letter-spacing:-.01em;text-transform:capitalize}
+  .vsub{font-size:13.5px;color:var(--ink-2)}
+  .verdict.phishing .vnum,.verdict.phishing .vtitle{color:var(--high)}
+  .verdict.suspicious .vnum,.verdict.suspicious .vtitle{color:var(--med)}
+  .verdict.clean .vnum,.verdict.clean .vtitle{color:var(--ok)}
+  @media (max-width:520px){.vscore{border-right:none;border-bottom:1px solid var(--line-2);padding-right:0;padding-bottom:12px;width:100%}}
+
   /* panels */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:start}
   @media (max-width:780px){.grid{grid-template-columns:1fr}}
@@ -145,7 +175,7 @@
       </svg>
     </span>
     <span class="brand">Angler</span>
-    <span class="pill accent">M2 · rules engine</span>
+    <span class="pill accent">M3 · model layer</span>
     <span class="spacer"></span>
     <a class="toplink" href="https://github.com/riccardopandin/angler" target="_blank" rel="noopener">Source →</a>
   </header>
@@ -177,12 +207,33 @@
   <!-- results -->
   <div id="out" hidden>
 
+    <div class="verdict" id="verdict">
+      <div class="vscore"><span class="vnum" id="vnum">0</span><span class="vden">RISK / 100</span></div>
+      <div class="vbody">
+        <div class="vhead"><span class="vtitle" id="vlabel">clean</span><span class="pill" id="vresolved"></span></div>
+        <p class="vsub" id="vsub"></p>
+      </div>
+    </div>
+
     <div class="panel" style="margin-top:18px">
       <div class="phead">
         <span class="ptitle">Findings</span>
         <span id="fcount" class="pill"></span>
       </div>
       <div class="pbody" id="findings"></div>
+    </div>
+
+    <div class="panel" id="rationale-panel" style="margin-top:14px">
+      <div class="phead">
+        <span class="ptitle">Analyst rationale</span>
+        <span class="pill" id="rwriter"></span>
+      </div>
+      <div class="pbody">
+        <p class="rsum" id="rsummary"></p>
+        <ol class="rsteps" id="rsteps"></ol>
+        <p class="raction" id="raction"></p>
+        <p class="rwarn" id="rwarn" hidden></p>
+      </div>
     </div>
 
     <div class="grid">
@@ -315,7 +366,17 @@ function verdictPill(n) {
 function render(d) {
   current = d;
   checks.hidden = true;
-  const email = d.email, auth = d.auth, findings = d.findings;
+  const email = d.email, auth = d.auth, findings = d.findings, v = d.verdict;
+
+  const banner = $('verdict');
+  banner.className = 'verdict ' + v.label;
+  $('vnum').textContent = v.score;
+  $('vlabel').textContent = v.label;
+  $('vresolved').textContent = 'resolved by ' + v.resolved_by;
+  $('vsub').textContent =
+    v.label === 'phishing'  ? 'The deterministic rules cleared the phishing threshold on their own. No model was asked to classify this message.'
+  : v.label === 'suspicious' ? 'Ambiguous. Enough signal to justify a look, not enough to condemn on rules alone.'
+  :                            'Nothing fired. Authentication aligned and no lookalike detected.';
 
   $('fcount').outerHTML = '<span id="fcount">' + verdictPill(findings.length) + '</span>';
   $('findings').innerHTML = findings.length
@@ -332,6 +393,22 @@ function render(d) {
           </div>
         </div>`).join('')
     : '<div class="clean">✓ No rule fired. Authentication aligned and no lookalike detected.</div>';
+
+  const r = d.rationale;
+  const rpanel = $('rationale-panel');
+  if (r) {
+    $('rwriter').textContent = r.written_by === 'claude' ? 'written by model' : 'rules fallback';
+    $('rsummary').textContent = r.summary;
+    $('rsteps').innerHTML = (r.reasoning_steps || []).map(step => '<li>' + esc(step) + '</li>').join('');
+    $('raction').innerHTML = '<b>Recommended action:</b> ' + esc(r.recommended_action);
+    const warn = $('rwarn');
+    warn.textContent = 'The message content tried to issue instructions to the analysis model. '
+      + 'The verdict above was set by the deterministic rules and message content cannot change it.';
+    warn.hidden = !r.manipulation_attempt_detected;
+    rpanel.hidden = false;
+  } else {
+    rpanel.hidden = true;
+  }
 
   $('fname').textContent = email.filename || 'message';
 
