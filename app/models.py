@@ -55,3 +55,11 @@ class ParsedEmail(BaseModel):
     html_body: str | None = None
     links: list[Link] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)
+
+class AuthResults(BaseModel):
+    """What the receiving mail server concluded about the sender's identity."""
+
+    spf: str | None = None
+    dkim: str | None = None
+    dmarc: str | None = None
+    dmarc_policy: str | None = None
