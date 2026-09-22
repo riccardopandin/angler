@@ -3,153 +3,379 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Angler</title>
+<title>Angler — mail forensics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   :root{
-    --ground:#EFF2F1; --surface:#fff; --surface-2:#F6F8F7;
-    --ink:#141E1C; --ink-2:#4A5B57; --ink-3:#7C8D89;
-    --line:#D8DEDC; --line-strong:#BFC8C5; --accent:#0D6874; --crit:#AC3A30;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --ground:#EFF2F1; --surface:#fff; --surface-2:#F5F8F7;
+    --ink:#131D1B; --ink-2:#4A5B57; --ink-3:#7C8D89;
+    --line:#DCE3E1; --line-2:#BFC8C5;
+    --accent:#0D6874; --accent-soft:#E0EFF1; --on-accent:#fff;
+    --high:#AC3A30; --high-soft:#FAEAE8;
+    --med:#9A6410;  --med-soft:#F8F1E0;
+    --ok:#2C7A50;   --ok-soft:#E4F1EA;
+    --shadow:0 1px 2px rgba(19,29,27,.05), 0 10px 30px rgba(19,29,27,.06);
+    --ui:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   @media (prefers-color-scheme:dark){
     :root{
-      --ground:#0D1416; --surface:#141D20; --surface-2:#192427;
-      --ink:#E3EAE8; --ink-2:#9CADAA; --ink-3:#748582;
-      --line:#253336; --line-strong:#33454A; --accent:#4FBECC; --crit:#E5786C;
+      --ground:#0C1315; --surface:#131C1F; --surface-2:#182326;
+      --ink:#E4EBE9; --ink-2:#9AACA9; --ink-3:#71827F;
+      --line:#233135; --line-2:#32454A;
+      --accent:#4FBECC; --accent-soft:#113138; --on-accent:#07181B;
+      --high:#E5786C; --high-soft:#331916;
+      --med:#D6A445;  --med-soft:#2F2411;
+      --ok:#5CB585;   --ok-soft:#112C1F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35);
     }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--ground);color:var(--ink);
-    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
-  .wrap{max-width:900px;margin:0 auto;padding:40px 20px 72px}
-  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
-  h1{font-size:24px;margin:0;letter-spacing:-.02em}
-  .tag{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
-    color:var(--ink-3);border:1px solid var(--line);border-radius:99px;padding:3px 9px}
-  .lede{color:var(--ink-2);margin:0 0 24px;max-width:60ch}
-  .drop{border:2px dashed var(--line-strong);border-radius:10px;background:var(--surface-2);
-    padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1020px;margin:0 auto;padding-inline:20px;padding-block:32px 72px}
+  h1,h2,h3{margin:0;text-wrap:balance}
+  p{margin:0}
+  a{color:var(--accent)}
+
+  /* header */
+  .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .mark{width:30px;height:30px;border-radius:8px;flex:none;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+  .brand{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  .pill{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+    border-radius:99px;padding:3px 9px;border:1px solid var(--line-2);color:var(--ink-3)}
+  .pill.high{color:var(--high);background:var(--high-soft);border-color:var(--high)}
+  .pill.med{color:var(--med);background:var(--med-soft);border-color:var(--med)}
+  .pill.ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok)}
+  .pill.accent{color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
+  .spacer{flex:1}
+  .toplink{font-size:13px;color:var(--ink-2);text-decoration:none}
+  .toplink:hover{color:var(--accent)}
+  .lede{color:var(--ink-2);max-width:66ch;margin-bottom:22px}
+
+  /* drop zone */
+  .drop{border:2px dashed var(--line-2);border-radius:12px;background:var(--surface-2);
+    padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
   .drop.over{border-color:var(--accent);background:var(--surface)}
-  .drop h2{margin:0 0 6px;font-size:17px}
-  .drop p{margin:0;color:var(--ink-2);font-size:13.5px}
   .drop:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-  .panel{margin-top:18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
-  .panel h3{margin:0;padding:11px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);
-    font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
-    color:var(--ink-2);font-weight:500}
-  .panel .body{padding:14px}
-  dl{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;margin:0;font-family:var(--mono);font-size:12.5px}
-  dt{color:var(--ink-3);font-size:11px}
+  .drop h2{font-size:17px;margin-bottom:5px}
+  .drop p{color:var(--ink-2);font-size:13.5px}
+  .actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  button{font:500 13.5px var(--ui);border-radius:8px;padding:8px 15px;cursor:pointer;border:1px solid transparent}
+  .btn{background:var(--accent);color:var(--on-accent)}
+  .btn-ghost{background:transparent;color:var(--ink-2);border-color:var(--line-2)}
+  .btn-ghost:hover{color:var(--accent);border-color:var(--accent)}
+
+  /* checks legend (empty state) */
+  .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:20px}
+  .check{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 14px}
+  .check b{display:block;font-size:13.5px;margin-bottom:2px}
+  .check span{font-size:12.5px;color:var(--ink-2)}
+
+  /* status */
+  .status{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+  .status.err{color:var(--high)}
+
+  /* panels */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:start}
+  @media (max-width:780px){.grid{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--line);border-radius:11px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow)}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;
+    background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .ptitle{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-2);font-weight:500}
+  .pbody{padding:14px}
+
+  /* findings */
+  .finding{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+  .finding:first-child{border-top:none;padding-top:0}
+  .stripe{width:3px;border-radius:2px;flex:none}
+  .stripe.high{background:var(--high)}
+  .stripe.medium{background:var(--med)}
+  .stripe.info{background:var(--ink-3)}
+  .fbody{flex:1;min-width:0}
+  .fhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+  .ftitle{font-weight:600;font-size:14.5px}
+  .fcode{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+  .fdetail{font-size:13.5px;color:var(--ink-2)}
+  .clean{display:flex;align-items:center;gap:10px;color:var(--ok);font-size:14px}
+
+  /* key/value */
+  dl{display:grid;grid-template-columns:118px 1fr;gap:6px 12px;margin:0;font-family:var(--mono);font-size:12.5px}
+  dt{color:var(--ink-3);font-size:10.5px;letter-spacing:.04em;padding-top:2px}
   dd{margin:0;word-break:break-word}
-  ol{margin:0;padding-left:20px;font-family:var(--mono);font-size:12px;color:var(--ink-2)}
-  ol li{margin-bottom:6px}
-  ol b{color:var(--ink)}
-  .mismatch{color:var(--crit)}
-  pre{margin:0;padding:14px;background:var(--surface-2);border-top:1px solid var(--line);
-    font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;color:var(--ink-2)}
-  .err{color:var(--crit);font-size:13.5px;margin-top:14px}
+  .bad{color:var(--high)}
+
+  /* auth rows */
+  .arow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .arow:first-child{border-top:none;padding-top:0}
+  .aname{font-family:var(--mono);font-size:12.5px;font-weight:500}
+  .anote{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+
+  /* hops */
+  ol.hops{margin:0;padding:0;list-style:none;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  ol.hops li{display:grid;grid-template-columns:20px 1fr;gap:9px;padding:7px 0;border-top:1px dashed var(--line)}
+  ol.hops li:first-child{border-top:none;padding-top:0}
+  ol.hops .n{color:var(--accent);font-weight:600}
+  ol.hops b{color:var(--ink)}
+
+  /* links */
+  .link{padding:10px 0;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+  .link:first-child{border-top:none;padding-top:0}
+  .link b{color:var(--ink);font-size:12.5px}
+  .shown{color:var(--high)}
+
+  details{margin-top:14px;border:1px solid var(--line);border-radius:11px;background:var(--surface);overflow:hidden}
+  summary{padding:10px 14px;cursor:pointer;font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--ink-2);background:var(--surface-2)}
+  pre{margin:0;padding:14px;font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;color:var(--ink-2)}
+
+  footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap}
   [hidden]{display:none!important}
-  @media (max-width:520px){dl{grid-template-columns:1fr;gap:2px}dt{margin-top:8px}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><h1>Angler</h1><span class="tag">M1 · parsing only</span></header>
-  <p class="lede">Drop a raw <code>.eml</code> file. Nothing is scored yet — this milestone
-  extracts the evidence. Attachments are hashed, never opened, and no link is ever requested.</p>
+
+  <header class="top">
+    <span class="mark" aria-hidden="true">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5h16v12H8l-4 4z"></path><path d="M8 10h8"></path><path d="M8 13.5h5"></path>
+      </svg>
+    </span>
+    <span class="brand">Angler</span>
+    <span class="pill accent">M2 · rules engine</span>
+    <span class="spacer"></span>
+    <a class="toplink" href="https://github.com/riccardopandin/angler" target="_blank" rel="noopener">Source →</a>
+  </header>
+
+  <p class="lede">Drop a raw <code>.eml</code> and get back evidence you can check: what the receiving
+  server concluded about the sender's identity, where the message actually came from, and every link
+  with the text that hid it. Attachments are hashed, never opened. No link in a message is ever requested.</p>
 
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload an .eml file">
     <h2>Drop an .eml file here</h2>
     <p>or press Enter to choose one · up to 25 MB</p>
+    <div class="actions">
+      <button class="btn" id="pick" type="button">Choose a file</button>
+      <button class="btn-ghost" id="sample" type="button">Try a sample phish</button>
+    </div>
   </div>
   <input type="file" id="picker" accept=".eml,.msg,message/rfc822" hidden>
 
-  <p class="err" id="error" hidden></p>
+  <p class="status" id="status" hidden></p>
 
-  <div id="out" hidden>
-    <div class="panel">
-      <h3>Envelope</h3>
-      <div class="body"><dl id="envelope"></dl></div>
-    </div>
-    <div class="panel">
-      <h3>Routing chain — oldest hop first</h3>
-      <div class="body"><ol id="hops"></ol></div>
-    </div>
-    <div class="panel">
-      <h3>Links</h3>
-      <div class="body"><ol id="links"></ol></div>
-    </div>
-    <div class="panel">
-      <h3>Raw response</h3>
-      <pre id="raw"></pre>
-    </div>
+  <!-- empty state -->
+  <div class="checks" id="checks">
+    <div class="check"><b>Header authentication</b><span>SPF, DKIM and DMARC, plus the policy the domain publishes.</span></div>
+    <div class="check"><b>Lookalike domains</b><span>Homoglyph substitutions and punycode that read as a known brand.</span></div>
+    <div class="check"><b>Routing origin</b><span>The <code>Received</code> chain reversed, so hop 1 is where it began.</span></div>
+    <div class="check"><b>Link deception</b><span>What a link says versus where it actually points.</span></div>
   </div>
+
+  <!-- results -->
+  <div id="out" hidden>
+
+    <div class="panel" style="margin-top:18px">
+      <div class="phead">
+        <span class="ptitle">Findings</span>
+        <span id="fcount" class="pill"></span>
+      </div>
+      <div class="pbody" id="findings"></div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Envelope</span><span class="pill" id="fname"></span></div>
+        <div class="pbody"><dl id="envelope"></dl></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Authentication</span></div>
+        <div class="pbody" id="auth"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Routing chain — oldest hop first</span><span class="pill" id="hopcount"></span></div>
+        <div class="pbody"><ol class="hops" id="hops"></ol></div>
+      </div>
+      <div class="panel">
+        <div class="phead">
+          <span class="ptitle">Links &amp; indicators</span>
+          <button class="btn-ghost" id="copy" type="button" style="font-size:11px;padding:3px 9px">Copy IOCs</button>
+        </div>
+        <div class="pbody" id="links"></div>
+      </div>
+    </div>
+
+    <details>
+      <summary>Raw response</summary>
+      <pre id="raw"></pre>
+    </details>
+  </div>
+
+  <footer>
+    <span>POST /v1/analyze · POST /v1/parse</span>
+    <span>Free tier — the first request after idle takes ~50s to wake.</span>
+  </footer>
 </div>
 
 <script>
-const drop = document.getElementById('drop');
-const picker = document.getElementById('picker');
-const out = document.getElementById('out');
-const errBox = document.getElementById('error');
+// A real (fabricated) phishing sample, so visitors without an .eml can try the tool.
+const SAMPLE = `Return-Path: <bounce@mail-relay-7t2.xyz>
+Received: from mx.ut.edu (mx.ut.edu [104.47.55.12]) by mailbox.ut.edu with ESMTPS id 9Q1x4; Mon, 8 Sep 2026 03:14:31 +0000
+Received: from relay-7t2.xyz (relay-7t2.xyz [91.219.238.12]) by mx.ut.edu with ESMTPS id 4X9k2; Mon, 8 Sep 2026 03:14:22 +0000
+Received: from localhost (unknown [185.243.115.44]) by relay-7t2.xyz with SMTP id 7t2a; Mon, 8 Sep 2026 03:14:07 +0000
+Authentication-Results: mx.ut.edu; spf=softfail smtp.mailfrom=mail-relay-7t2.xyz; dkim=none; dmarc=fail (p=QUARANTINE) header.from=rnicrosoft-account.com
+From: "Microsoft 365 Security" <security@rnicrosoft-account.com>
+Reply-To: helpdesk@mail-relay-7t2.xyz
+To: r.pandin@spartans.ut.edu
+Subject: Your password expires in 24 hours
+Date: Mon, 8 Sep 2026 03:14:07 +0300
+Message-ID: <7t2.0091@mail-relay-7t2.xyz>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b0undary7t2"
 
-drop.addEventListener('click', () => picker.click());
-drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }});
+--b0undary7t2
+Content-Type: text/plain; charset="utf-8"
+
+Your Microsoft 365 password expires in 24 hours. Sessions on all devices
+will be signed out unless you verify your account immediately.
+
+Verify now: https://login.rnicrosoft-account.com/auth/verify?u=rpandin
+
+--b0undary7t2
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your Microsoft 365 password expires in <b>24 hours</b>.</p>
+<p><a href="https://login.rnicrosoft-account.com/auth/verify?u=rpandin">https://login.microsoftonline.com</a></p>
+<p><a href="https://t.mail-relay-7t2.xyz/unsub?id=91">Unsubscribe</a></p>
+<img src="https://t.mail-relay-7t2.xyz/o.gif" width="1" height="1">
+</body></html>
+
+--b0undary7t2--
+`;
+
+const $ = (id) => document.getElementById(id);
+const drop = $('drop'), picker = $('picker'), out = $('out'), status = $('status'), checks = $('checks');
+let current = null;
+
+drop.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') picker.click(); });
+drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }});
+$('pick').addEventListener('click', () => picker.click());
+$('sample').addEventListener('click', () => send(new File([SAMPLE], 'sample_phish.eml', {type:'message/rfc822'})));
 picker.addEventListener('change', () => { if (picker.files[0]) send(picker.files[0]); });
 ['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) send(f); });
 
+$('copy').addEventListener('click', () => {
+  if (!current) return;
+  const lines = [];
+  current.email.hops.forEach(h => { if (h.ip) lines.push(h.ip); });
+  current.email.links.forEach(l => { if (l.host) lines.push(l.host); });
+  navigator.clipboard.writeText([...new Set(lines)].join('\n'))
+    .then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy IOCs', 1400); })
+    .catch(() => { $('copy').textContent = 'Copy failed'; });
+});
+
+function setStatus(text, isError) {
+  status.textContent = text;
+  status.classList.toggle('err', !!isError);
+  status.hidden = !text;
+}
+
 async function send(file) {
-  errBox.hidden = true;
+  setStatus('Analyzing ' + file.name + '… (first request after idle can take ~50s)');
   const data = new FormData();
   data.append('file', file);
   try {
-    const res = await fetch('/v1/parse', { method: 'POST', body: data });
+    const res = await fetch('/v1/analyze', { method: 'POST', body: data });
     const json = await res.json();
-    if (!res.ok) { fail(json.detail || 'That message could not be parsed.'); return; }
+    if (!res.ok) { out.hidden = true; setStatus(json.detail || 'That message could not be parsed.', true); return; }
+    setStatus('');
     render(json);
-  } catch (e) {
-    fail('The request never reached the server. Is it still running?');
+  } catch (err) {
+    out.hidden = true;
+    setStatus('The request never reached the server. Check your connection and retry.', true);
   }
 }
 
-function fail(message) { out.hidden = true; errBox.textContent = message; errBox.hidden = false; }
+const esc = (s) => String(s ?? '—').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const addrs = (list) => (list && list.length) ? list.map(a => esc(a.address)).join(', ') : '—';
 
-function esc(s) { return String(s ?? '—').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
-function addr(list) { return (list && list.length) ? list.map(a => esc(a.address)).join(', ') : '—'; }
+function verdictPill(n) {
+  if (n === 0) return '<span class="pill ok">Clean</span>';
+  return '<span class="pill high">' + n + (n === 1 ? ' finding' : ' findings') + '</span>';
+}
 
 function render(d) {
-  const fromDomain = d.from_addresses[0] && d.from_addresses[0].domain;
-  const replyDomain = d.reply_to[0] && d.reply_to[0].domain;
-  const rows = [
-    ['Subject', esc(d.subject)],
-    ['From', addr(d.from_addresses)],
-    ['Reply-To', replyDomain && replyDomain !== fromDomain
-        ? '<span class="mismatch">' + addr(d.reply_to) + '</span>' : addr(d.reply_to)],
-    ['Return-Path', esc(d.return_path)],
-    ['To', addr(d.to_addresses)],
-    ['Date', esc(d.date)],
-    ['Message-ID', esc(d.message_id)],
-    ['Auth-Results', esc(d.authentication_results)],
-    ['Origin IP', esc(d.origin_ip)],
-    ['Attachments', d.attachments.length ? d.attachments.map(a => esc(a.filename) + ' · ' + a.sha256.slice(0,16)).join('<br>') : 'none']
-  ];
-  document.getElementById('envelope').innerHTML =
-    rows.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+  current = d;
+  checks.hidden = true;
+  const email = d.email, auth = d.auth, findings = d.findings;
 
-  document.getElementById('hops').innerHTML = d.hops.length
-    ? d.hops.map(h => '<li><b>' + esc(h.ip) + '</b> — from ' + esc(h.from_host) + ' by ' + esc(h.by_host) + '<br>' + esc(h.timestamp) + '</li>').join('')
+  $('fcount').outerHTML = '<span id="fcount">' + verdictPill(findings.length) + '</span>';
+  $('findings').innerHTML = findings.length
+    ? findings.map(f => `
+        <div class="finding">
+          <span class="stripe ${esc(f.severity)}"></span>
+          <div class="fbody">
+            <div class="fhead">
+              <span class="ftitle">${esc(f.title)}</span>
+              <span class="pill ${f.severity === 'high' ? 'high' : f.severity === 'medium' ? 'med' : ''}">${esc(f.severity)}</span>
+              <span class="fcode">${esc(f.code)}</span>
+            </div>
+            <p class="fdetail">${esc(f.detail)}</p>
+          </div>
+        </div>`).join('')
+    : '<div class="clean">✓ No rule fired. Authentication aligned and no lookalike detected.</div>';
+
+  $('fname').textContent = email.filename || 'message';
+
+  const fromDomain = email.from_addresses[0] && email.from_addresses[0].domain;
+  const replyDomain = email.reply_to[0] && email.reply_to[0].domain;
+  $('envelope').innerHTML = [
+    ['Subject', esc(email.subject)],
+    ['From', addrs(email.from_addresses)],
+    ['Reply-To', replyDomain && replyDomain !== fromDomain
+      ? '<span class="bad">' + addrs(email.reply_to) + '</span>' : addrs(email.reply_to)],
+    ['Return-Path', esc(email.return_path)],
+    ['To', addrs(email.to_addresses)],
+    ['Date', esc(email.date)],
+    ['Origin IP', esc(email.origin_ip)],
+    ['Attachments', email.attachments.length
+      ? email.attachments.map(a => esc(a.filename) + ' · ' + a.sha256.slice(0, 16)).join('<br>') : 'none'],
+  ].map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('');
+
+  const cls = (v) => v === 'pass' ? 'ok' : (v === 'none' || v === 'fail') ? 'high' : v ? 'med' : '';
+  $('auth').innerHTML = [
+    ['SPF', auth.spf, 'is this server allowed to send for the domain?'],
+    ['DKIM', auth.dkim, 'is the message cryptographically signed?'],
+    ['DMARC', auth.dmarc, auth.dmarc_policy ? 'published policy: p=' + auth.dmarc_policy : 'does the signed domain match the visible one?'],
+  ].map(([name, value, note]) => `
+      <div class="arow">
+        <span><span class="aname">${name}</span><br><span class="anote">${esc(note)}</span></span>
+        <span class="pill ${cls(value)}">${esc(value || 'n/a')}</span>
+      </div>`).join('');
+
+  $('hopcount').textContent = email.hops.length + (email.hops.length === 1 ? ' hop' : ' hops');
+  $('hops').innerHTML = email.hops.length
+    ? email.hops.map(h => `<li><span class="n">${h.index}</span><span><b>${esc(h.ip)}</b> — from ${esc(h.from_host)} by ${esc(h.by_host)}<br>${esc(h.timestamp)}</span></li>`).join('')
     : '<li>No Received headers.</li>';
 
-  document.getElementById('links').innerHTML = d.links.length
-    ? d.links.map(l => {
+  $('links').innerHTML = email.links.length
+    ? email.links.map(l => {
         const lies = l.anchor_text && l.host && !l.anchor_text.includes(l.host);
-        return '<li><b>' + esc(l.host) + '</b>' + (lies ? ' <span class="mismatch">shown as ' + esc(l.anchor_text) + '</span>' : '')
-             + '<br>' + esc(l.url) + '</li>';
+        return `<div class="link"><b>${esc(l.host)}</b> <span class="pill">${esc(l.source)}</span>`
+             + (lies ? `<br><span class="shown">shown to the reader as ${esc(l.anchor_text)}</span>` : '')
+             + `<br>${esc(l.url)}</div>`;
       }).join('')
-    : '<li>No links.</li>';
+    : '<div class="link">No links.</div>';
 
-  document.getElementById('raw').textContent = JSON.stringify(d, null, 2);
+  $('raw').textContent = JSON.stringify(d, null, 2);
   out.hidden = false;
 }
 </script>

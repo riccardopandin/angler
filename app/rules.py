@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from app.models import AuthResults
+from app.models import AuthResults, Finding, ParsedEmail
 
 
 def _method(raw: str, name: str) -> str | None:
@@ -112,3 +112,107 @@ def detect_lookalike(domain: str) -> str | None:
         if brand in normalized:
             return brand
     return None
+
+
+# ---------------------------------------------------------------------------
+# Assembling the findings
+# ---------------------------------------------------------------------------
+
+_SEVERITY_ORDER = {"high": 0, "medium": 1, "info": 2}
+
+
+def findings_for(email: ParsedEmail) -> list[Finding]:
+    """Run every rule against one parsed message, worst finding first."""
+    found: list[Finding] = []
+    auth = parse_auth_results(email.authentication_results)
+
+    if auth.dmarc == "fail":
+        policy = auth.dmarc_policy or "none"
+        found.append(
+            Finding(
+                code="DMARC_FAIL",
+                severity="high",
+                title="DMARC failed",
+                detail=(
+                    "The domain in the visible From header is not authenticated. "
+                    f"That domain publishes p={policy}, which is what it asks "
+                    "receivers to do with messages like this one."
+                ),
+            )
+        )
+
+    if auth.dkim in {"none", "fail"}:
+        found.append(
+            Finding(
+                code="DKIM_MISSING" if auth.dkim == "none" else "DKIM_FAIL",
+                severity="medium",
+                title="No valid DKIM signature",
+                detail=(
+                    "Nothing cryptographically ties this message to the domain "
+                    "it claims to come from."
+                ),
+            )
+        )
+
+    if auth.spf in {"fail", "softfail"}:
+        found.append(
+            Finding(
+                code="SPF_FAIL",
+                severity="medium",
+                title=f"SPF {auth.spf}",
+                detail=(
+                    "The server that sent this message is not on the list of "
+                    "servers the sending domain authorises."
+                ),
+            )
+        )
+
+    sender = email.from_addresses[0] if email.from_addresses else None
+    domain = sender.domain if sender else None
+
+    if domain:
+        brand = detect_lookalike(domain)
+        if brand:
+            found.append(
+                Finding(
+                    code="LOOKALIKE_DOMAIN",
+                    severity="high",
+                    title=f"Sender domain imitates {brand}",
+                    detail=(
+                        f"{domain} is not a {brand} domain, but reads as one at "
+                        "normal size. Character substitutions like rn for m "
+                        "survive every technical check because the attacker "
+                        "genuinely owns the lookalike domain."
+                    ),
+                )
+            )
+
+        if is_punycode(domain):
+            found.append(
+                Finding(
+                    code="PUNYCODE_DOMAIN",
+                    severity="high",
+                    title="Sender domain uses punycode",
+                    detail=(
+                        f"{domain} encodes non-Latin characters that a mail "
+                        "client renders as something else entirely."
+                    ),
+                )
+            )
+
+    reply_domain = email.reply_to[0].domain if email.reply_to else None
+    if domain and reply_domain and reply_domain != domain:
+        found.append(
+            Finding(
+                code="REPLY_TO_MISMATCH",
+                severity="medium",
+                title="Replies go to a different domain",
+                detail=(
+                    f"The message presents itself as {domain} but replies would "
+                    f"be delivered to {reply_domain}."
+                ),
+            )
+        )
+
+    found.sort(key=lambda f: _SEVERITY_ORDER.get(f.severity, 9))
+    return found

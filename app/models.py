@@ -63,3 +63,20 @@ class AuthResults(BaseModel):
     dkim: str | None = None
     dmarc: str | None = None
     dmarc_policy: str | None = None
+
+
+class Finding(BaseModel):
+    """One thing worth telling an analyst about."""
+
+    code: str
+    severity: str  # "high", "medium" or "info"
+    title: str
+    detail: str
+
+
+class Analysis(BaseModel):
+    """Everything the tool concluded about one message."""
+
+    email: ParsedEmail
+    auth: AuthResults
+    findings: list[Finding] = Field(default_factory=list)
