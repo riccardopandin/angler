@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from dotenv import load_dotenv
 from fastapi.responses import FileResponse
 
 from app.llm import RationaleWriter, build_evidence, get_writer, resolve, write_rationale
@@ -12,7 +13,11 @@ from app.models import Analysis, ParsedEmail
 from app.parser import MAX_BYTES, parse_eml
 from app.rules import findings_for, parse_auth_results, verdict_for
 
-app = FastAPI(title="Angler", version="0.2.0")
+# Local development reads .env. In production Render supplies real
+# environment variables and this call finds nothing, which is correct.
+load_dotenv()
+
+app = FastAPI(title="Angler", version="0.3.0")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
