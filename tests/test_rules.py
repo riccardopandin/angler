@@ -6,8 +6,11 @@ These tests are the specification. Make them pass by writing app/rules.py.
 from __future__ import annotations
 
 from app.parser import parse_eml
+from app.models import Link
 from app.rules import (
+    claimed_host,
     detect_lookalike,
+    link_text_lies,
     is_punycode,
     normalize_homoglyphs,
     parse_auth_results,
@@ -78,3 +81,49 @@ def test_punycode_is_flagged() -> None:
 def test_the_phishing_sample_is_caught(phish: bytes) -> None:
     sender = parse_eml(phish).from_addresses[0]
     assert detect_lookalike(sender.domain) == "microsoft"
+
+
+# --- Rule 3: links that lie about their destination -------------------------
+
+
+def link(host: str, anchor: str | None, source: str = "html") -> Link:
+    return Link(url=f"https://{host}/x", host=host, anchor_text=anchor, source=source)
+
+
+def test_prose_anchor_text_claims_no_destination() -> None:
+    assert claimed_host("Unsubscribe") is None
+    assert claimed_host("Click here to verify your account") is None
+    assert claimed_host(None) is None
+
+
+def test_a_url_in_the_text_names_its_host() -> None:
+    assert claimed_host("https://login.microsoftonline.com") == "login.microsoftonline.com"
+    assert claimed_host("ut.okta.com/enduser/settings") == "ut.okta.com"
+
+
+def test_text_naming_a_different_host_is_a_lie() -> None:
+    assert link_text_lies(link("login.rnicrosoft-account.com", "https://login.microsoftonline.com")) is True
+
+
+def test_matching_text_and_destination_is_not_a_lie() -> None:
+    assert link_text_lies(link("ut.okta.com", "ut.okta.com/enduser/settings")) is False
+
+
+def test_abbreviating_to_the_parent_domain_is_not_a_lie() -> None:
+    """Text "okta.com" on a link to ut.okta.com is shorthand, not deception."""
+    assert link_text_lies(link("ut.okta.com", "okta.com")) is False
+    assert link_text_lies(link("okta.com", "ut.okta.com/settings")) is False
+
+
+def test_prose_and_images_cannot_lie() -> None:
+    assert link_text_lies(link("t.mail-relay-7t2.xyz", "Unsubscribe")) is False
+    assert link_text_lies(link("t.mail-relay-7t2.xyz", None, source="img")) is False
+
+
+def test_the_phishing_sample_has_a_lying_link(phish: bytes) -> None:
+    links = parse_eml(phish).links
+    assert any(link_text_lies(item) for item in links)
+
+
+def test_the_genuine_sample_has_none(legit: bytes) -> None:
+    assert not any(link_text_lies(item) for item in parse_eml(legit).links)

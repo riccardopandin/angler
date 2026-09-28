@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from app.models import AuthResults, Finding, ParsedEmail, Verdict
+from app.models import AuthResults, Finding, Link, ParsedEmail, Verdict
 
 
 def _method(raw: str, name: str) -> str | None:
@@ -200,6 +200,23 @@ def findings_for(email: ParsedEmail) -> list[Finding]:
                 )
             )
 
+    lying = [link for link in email.links if link_text_lies(link)]
+    if lying:
+        worst = lying[0]
+        found.append(
+            Finding(
+                code="LINK_TEXT_MISMATCH",
+                severity="high",
+                title="A link points somewhere other than it claims",
+                detail=(
+                    f"The message displays '{worst.anchor_text}' but the link "
+                    f"actually resolves to {worst.host}. HTML lets the visible "
+                    "text and the destination be completely unrelated, and that "
+                    "gap is most of what makes phishing work."
+                ),
+            )
+        )
+
     reply_domain = email.reply_to[0].domain if email.reply_to else None
     if domain and reply_domain and reply_domain != domain:
         found.append(
@@ -234,6 +251,10 @@ _WEIGHTS: dict[str, int] = {
     "PUNYCODE_DOMAIN": 40,
     # DMARC failing means alignment failed, which subsumes SPF. Scored once.
     "DMARC_FAIL": 35,
+    # Moderate on purpose: marketing mail routes links through click
+    # trackers constantly, which looks identical to this rule. Damning in
+    # combination, too noisy to condemn on its own.
+    "LINK_TEXT_MISMATCH": 30,
     # Deliberately cheap: forwarders and mailing lists break these on
     # legitimate mail constantly. Weighted high, they quarantine newsletters.
     "DKIM_FAIL": 15,
@@ -268,3 +289,40 @@ def label_for_score(score: int) -> str:
 def verdict_for(findings: list[Finding]) -> Verdict:
     score = score_for(findings)
     return Verdict(score=score, label=label_for_score(score), resolved_by="rules")
+
+
+# ---------------------------------------------------------------------------
+# Rule 3: links that lie about their destination
+# ---------------------------------------------------------------------------
+
+# Matches anything shaped like a hostname: one or more dot-separated labels
+# ending in a TLD. Anchor text that is prose ("Unsubscribe", "Click here")
+# claims no destination at all and cannot be lying.
+_HOSTISH_RE = re.compile(r"\b((?:[a-z0-9-]+\.)+[a-z]{2,})\b", re.IGNORECASE)
+
+
+def claimed_host(anchor_text: str | None) -> str | None:
+    """The host the visible text claims to lead to, if it names one."""
+    if not anchor_text:
+        return None
+    match = _HOSTISH_RE.search(anchor_text)
+    return match.group(1).lower() if match else None
+
+
+def link_text_lies(link: Link) -> bool:
+    """True when the text names one destination and the href goes to another.
+
+    Careful with subdomains: text reading "okta.com" on a link to
+    "ut.okta.com" is not deception, it is abbreviation. Same in reverse.
+    """
+    claimed = claimed_host(link.anchor_text)
+    actual = (link.host or "").lower()
+    if not claimed or not actual:
+        return False
+
+    # TODO (you): return False when claimed and actual are the same host, OR
+    # when either is a subdomain of the other. Otherwise return True.
+    # Subdomain test: a.endswith("." + b) means a sits under b.
+    same = actual == claimed
+    subdomain = actual.endswith("." + claimed) or claimed.endswith("." + actual)
+    return not (same or subdomain)
