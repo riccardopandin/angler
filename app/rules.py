@@ -320,9 +320,6 @@ def link_text_lies(link: Link) -> bool:
     if not claimed or not actual:
         return False
 
-    # TODO (you): return False when claimed and actual are the same host, OR
-    # when either is a subdomain of the other. Otherwise return True.
-    # Subdomain test: a.endswith("." + b) means a sits under b.
     same = actual == claimed
     subdomain = actual.endswith("." + claimed) or claimed.endswith("." + actual)
     return not (same or subdomain)
