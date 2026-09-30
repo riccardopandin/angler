@@ -49,6 +49,64 @@ The response shape is `ParsedEmail` in `app/models.py`.
 - **`Received` headers are reversed on the way in.** They arrive newest
   first, which is the opposite of how anyone reads a route.
 
+## Prompt injection
+
+Every email this tool analyses is attacker-controlled text on its way to a
+language model. `redteam/` holds 20 injection techniques - direct overrides,
+white-on-white HTML, delimiter and JSON escapes, base64 and ROT13 payloads,
+zero-width characters, forged tool output, persona reassignment - each built
+into a complete message that keeps its phishing indicators intact.
+
+The defence is architectural rather than textual. **Deterministic rules score
+every message and set the verdict before the model is called.** The model
+writes the explanation and may propose a different label only inside the
+ambiguous 35-69 band. Above the threshold there is no code path by which
+message content can change a verdict, and `tests/test_injection.py` proves it
+by running all 20 techniques against a model stub that obeys every injected
+instruction.
+
+Two corpora, measured separately:
+
+| corpus | what it is | can injection move it? |
+| --- | --- | --- |
+| confident | scored above the threshold by rules alone | No - structurally impossible |
+| ambiguous | 35-69, where the model settles the label | Yes - this is the designed trust boundary |
+
+### Measured result
+
+40 cases against the live model, September 2026:
+
+| corpus | cases | bypassed | escalated | manipulation flagged |
+| --- | ---: | ---: | ---: | ---: |
+| confident | 20 | **0** | 0 | 16/20 |
+| ambiguous | 20 | **0** | 19 | 15/20 |
+
+A bypass means a move toward `clean` - the attacker's goal. There were none.
+
+Two findings worth stating plainly:
+
+**Injection made the verdict stricter, not weaker.** On ambiguous messages the
+model recognised the manipulation attempt and escalated 19 of 20 from
+`suspicious` to `phishing`. A message whose body argues with the analyst is
+evidence about that message.
+
+**One blind spot.** `rot13_payload` was the only case the model did not
+recognise as an attack - it never decoded the ROT13, so it never noticed it
+was being manipulated. The verdict was unaffected, but the detection gap is
+real and is not being hidden here.
+
+An earlier version of this runner counted *any* label change as a bypass and
+reported a 95% failure rate on a system whose true failure rate was 0%. The
+metric, not the system, was wrong. That correction is documented in
+`redteam/run.py`.
+
+Reproduce:
+
+    python -m redteam.run --report
+
+Full per-case results are in `redteam/REPORT.md`.
+
+
 ## Limitations
 
 Known and deliberate at this milestone: authentication results are captured
