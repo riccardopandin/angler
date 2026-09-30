@@ -121,8 +121,13 @@ def detect_lookalike(domain: str) -> str | None:
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "info": 2}
 
 
-def findings_for(email: ParsedEmail) -> list[Finding]:
-    """Run every rule against one parsed message, worst finding first."""
+def findings_for(email: ParsedEmail, domain_age_days: int | None = None) -> list[Finding]:
+    """Run every rule against one parsed message, worst finding first.
+
+    Pure by design: no network, no clock, no disk. Facts that require I/O -
+    domain age, for instance - are looked up by the caller and passed in.
+    None means 'not known', which is not the same as 'old'.
+    """
     found: list[Finding] = []
     auth = parse_auth_results(email.authentication_results)
 
@@ -217,6 +222,10 @@ def findings_for(email: ParsedEmail) -> list[Finding]:
             )
         )
 
+    age_finding = domain_age_finding(domain, domain_age_days)
+    if age_finding:
+        found.append(age_finding)
+
     reply_domain = email.reply_to[0].domain if email.reply_to else None
     if domain and reply_domain and reply_domain != domain:
         found.append(
@@ -250,6 +259,10 @@ _WEIGHTS: dict[str, int] = {
     "LOOKALIKE_DOMAIN": 45,
     "PUNYCODE_DOMAIN": 40,
     # DMARC failing means alignment failed, which subsumes SPF. Scored once.
+    # A domain registered days ago and already sending mail about your
+    # password is not a coincidence.
+    "NEW_DOMAIN_7D": 40,
+    "NEW_DOMAIN_30D": 20,
     "DMARC_FAIL": 35,
     # Moderate on purpose: marketing mail routes links through click
     # trackers constantly, which looks identical to this rule. Damning in
@@ -323,3 +336,59 @@ def link_text_lies(link: Link) -> bool:
     same = actual == claimed
     subdomain = actual.endswith("." + claimed) or claimed.endswith("." + actual)
     return not (same or subdomain)
+
+# ---------------------------------------------------------------------------
+# Rule 4: newly registered sender domains
+# ---------------------------------------------------------------------------
+
+# Phishing infrastructure is disposable. Domains get registered, used for a
+# campaign, and abandoned before blocklists catch up - so age is one of the
+# few signals an attacker cannot fake. They can buy an aged domain, but that
+# costs real money and most do not bother.
+# Under a week is hard to explain innocently.
+VERY_NEW_DAYS = 7
+# Threat-intel feeds use 30 or 90 days for 'newly registered'; there is no
+# standard. 60 is a wide net, kept safe by a low weight - 20 points cannot
+# reach even the suspicious threshold alone, so a legitimate young domain is
+# never condemned by this rule on its own.
+NEW_DAYS = 60
+
+
+def domain_age_finding(domain: str | None, age_days: int | None) -> Finding | None:
+    """Judge a sender domain by how long it has existed.
+
+    age_days is None when the lookup failed or was disabled. That means "not
+    known", and an unknown age must never produce a finding - a slow registry
+    is not evidence about an email.
+    """
+    if not domain or age_days is None:
+        return None
+
+    if age_days < VERY_NEW_DAYS:
+        return Finding(
+            code="NEW_DOMAIN_7D",
+            severity="high",
+            title=f"Sender domain registered {7} days ago",
+            detail=(
+                f"{domain} was registered {7} days ago. Phishing "
+                "infrastructure is disposable: domains get bought, used for one "
+                "campaign, and abandoned before blocklists catch up. A domain "
+                "this new sending account-security mail has no history to check "
+                "and nothing to lose."
+            ),
+        )
+
+    if age_days < NEW_DAYS:
+        return Finding(
+            code="NEW_DOMAIN_30D",
+            severity="medium",
+            title=f"Sender domain is {60} days old",
+            detail=(
+                f"{domain} was registered {60} days ago. Not damning on "
+                "its own - real companies launch new domains - but young enough "
+                "that there is no sending reputation to lean on. Weigh it "
+                "alongside the other findings."
+            ),
+        )
+
+    return None

@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from dotenv import load_dotenv
 from fastapi.responses import FileResponse
 
+from app.domains import DomainAgeLookup, get_domain_age_lookup
 from app.llm import RationaleWriter, build_evidence, get_writer, resolve, write_rationale
 from app.models import Analysis, ParsedEmail
 from app.parser import MAX_BYTES, parse_eml
@@ -55,6 +56,7 @@ async def parse(file: UploadFile = File(...)) -> ParsedEmail:
 async def analyze(
     file: UploadFile = File(...),
     writer: RationaleWriter = Depends(get_writer),
+    ages: DomainAgeLookup = Depends(get_domain_age_lookup),
 ) -> Analysis:
     """Extraction, every detection rule, and a written rationale.
 
@@ -64,7 +66,13 @@ async def analyze(
     raw = await _read_upload(file)
     email = parse_eml(raw, filename=file.filename)
     auth = parse_auth_results(email.authentication_results)
-    findings = findings_for(email)
+
+    # The only I/O in the detection path, and it happens here rather than
+    # inside the rules so the rules stay pure and testable offline.
+    sender = email.from_addresses[0] if email.from_addresses else None
+    age = ages.age_days(sender.domain) if sender and sender.domain else None
+
+    findings = findings_for(email, domain_age_days=age)
     verdict = verdict_for(findings)
 
     evidence = build_evidence(email, auth, verdict, findings)
