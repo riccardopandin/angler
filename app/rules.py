@@ -368,9 +368,9 @@ def domain_age_finding(domain: str | None, age_days: int | None) -> Finding | No
         return Finding(
             code="NEW_DOMAIN_7D",
             severity="high",
-            title=f"Sender domain registered {7} days ago",
+            title=f"Sender domain registered {age_days} days ago",
             detail=(
-                f"{domain} was registered {7} days ago. Phishing "
+                f"{domain} was registered {age_days} days ago. Phishing "
                 "infrastructure is disposable: domains get bought, used for one "
                 "campaign, and abandoned before blocklists catch up. A domain "
                 "this new sending account-security mail has no history to check "
@@ -382,9 +382,9 @@ def domain_age_finding(domain: str | None, age_days: int | None) -> Finding | No
         return Finding(
             code="NEW_DOMAIN_30D",
             severity="medium",
-            title=f"Sender domain is {60} days old",
+            title=f"Sender domain is {age_days} days old",
             detail=(
-                f"{domain} was registered {60} days ago. Not damning on "
+                f"{domain} was registered {age_days} days ago. Not damning on "
                 "its own - real companies launch new domains - but young enough "
                 "that there is no sending reputation to lean on. Weigh it "
                 "alongside the other findings."
