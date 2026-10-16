@@ -9,8 +9,10 @@ attachment hashes.
 first request after 15 minutes of inactivity takes ~50 seconds while the
 container wakes up. Subsequent requests are immediate.
 
-**Status: M3 - rules, scoring and a written rationale.** See `SPEC.md` for
-the milestone plan.
+**Status: M4 - evidence.** Rules, scoring and the written rationale are done;
+the prompt-injection suite and a first corpus run (0 false positives on 2,750
+legitimate messages, see `corpus/METRICS.md`) are published. See `SPEC.md`
+for the milestone plan.
 
 The model never decides a confident verdict. Deterministic rules score every
 message first; the model writes the explanation, and may only propose a
@@ -134,6 +136,7 @@ Full per-case results are in `redteam/REPORT.md`.
 
 ## Limitations
 
-Known and deliberate at this milestone: authentication results are captured
-verbatim but not evaluated, and messages
-inside `message/rfc822` attachments are not parsed recursively.
+Known and deliberate at this milestone: messages inside `message/rfc822`
+attachments are not parsed recursively, and the detection rate on real
+phishing is not yet measured - the public corpus is spam, not phishing
+(see `corpus/METRICS.md`).
