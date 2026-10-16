@@ -49,6 +49,31 @@ The response shape is `ParsedEmail` in `app/models.py`.
 - **`Received` headers are reversed on the way in.** They arrive newest
   first, which is the opposite of how anyone reads a route.
 
+## MITRE ATT&CK mapping
+
+Each rule looks for evidence of a known adversary technique. Mapping them to
+ATT&CK means a finding arrives with the ID an analyst would search
+detections, threat intel and past cases by.
+
+| Angler check | Finding codes | ATT&CK technique |
+| --- | --- | --- |
+| SPF, DKIM and DMARC evaluation (Rule 1) | `DMARC_FAIL`, `DKIM_FAIL`, `DKIM_MISSING`, `SPF_FAIL` | [T1684.002](https://attack.mitre.org/techniques/T1684/002/) Social Engineering: Email Spoofing |
+| Lookalike and punycode sender domains (Rule 2) | `LOOKALIKE_DOMAIN`, `PUNYCODE_DOMAIN` | [T1583.001](https://attack.mitre.org/techniques/T1583/001/) Acquire Infrastructure: Domains; [T1684.001](https://attack.mitre.org/techniques/T1684/001/) Social Engineering: Impersonation |
+| Link text naming a different host than the link goes to (Rule 3) | `LINK_TEXT_MISMATCH` | [T1566.002](https://attack.mitre.org/techniques/T1566/002/) Phishing: Spearphishing Link |
+| Newly registered sender domain (Rule 4) | `NEW_DOMAIN_7D`, `NEW_DOMAIN_30D` | [T1583.001](https://attack.mitre.org/techniques/T1583/001/) Acquire Infrastructure: Domains |
+| Replies routed to a different domain | `REPLY_TO_MISMATCH` | [T1684.001](https://attack.mitre.org/techniques/T1684/001/) Social Engineering: Impersonation |
+| Attachments hashed (SHA-256), never opened | evidence only, no rule | [T1566.001](https://attack.mitre.org/techniques/T1566/001/) Phishing: Spearphishing Attachment |
+
+The attack on Angler itself is mapped as well. The injection suite in
+`redteam/` exercises MITRE ATLAS
+[AML.T0051.001](https://d3fend.mitre.org/offensive-technique/attack/AML.T0051.001/)
+LLM Prompt Injection: Indirect - prompts hidden in content a model ingests
+from somewhere else, which is exactly what an email is.
+
+Scope: a mapping says what the evidence in one message points to. Angler
+does not attribute campaigns or actors. IDs checked against attack.mitre.org
+in October 2026.
+
 ## Prompt injection
 
 Every email this tool analyses is attacker-controlled text on its way to a
