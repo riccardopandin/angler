@@ -1,0 +1,19 @@
+{
+  "sample_sha256": "6bf2699b810afe05e04c4b86fd3560fc23408d25c1fe9d9e39b6332b9ee6692f",
+  "model": "claude-sonnet-4-5",
+  "captured_at": "2026-10-26T19:47:08+00:00",
+  "rationale": {
+    "summary": "A mailbox storage warning from a domain whose DMARC failed, with replies directed to a different domain than the sender address.",
+    "reasoning_steps": [
+      "DMARC authentication failed (high severity) indicating the message may not be from the legitimate domain owner, even though SPF and DKIM passed individually",
+      "Reply-to domain 'campus-it-help.example' differs from sender domain 'campus-it-notices.example' (medium severity), which is unusual for legitimate IT support and can redirect responses to attacker infrastructure",
+      "The message creates urgency by claiming 98% mailbox capacity and imposing a Friday deadline, a common social engineering tactic",
+      "The link domain matches the sender domain (campus-it-notices.example), which is mildly consistent but does not offset the authentication failures",
+      "Low hop count (2) and recent origin IP may indicate direct sending rather than routing through legitimate organizational mail infrastructure"
+    ],
+    "recommended_action": "Escalate for domain verification. Check whether 'campus-it-notices.example' and 'campus-it-help.example' are legitimately owned by the organization. Contact IT via known-good channels to confirm whether this storage warning campaign is genuine. Do not click the link or reply until domains are validated.",
+    "manipulation_attempt_detected": false,
+    "adjusted_label": "phishing",
+    "written_by": "claude"
+  }
+}

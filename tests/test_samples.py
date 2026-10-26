@@ -91,11 +91,17 @@ def test_unknown_sample_is_a_404_and_never_reads_a_path() -> None:
     assert client.get("/v1/samples/..%2Fparser.py").status_code == 404
 
 
-def test_the_sample_analyses_without_a_saved_response(sample: bytes) -> None:
-    """Works before the owner has run the capture script."""
+def test_the_sample_analyses_without_a_saved_response(
+    sample: bytes, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Works before the owner has run the capture script. Pointed at an empty
+    directory so the committed response, once it exists, cannot change the result."""
+    monkeypatch.setattr(main_module, "writer_for", lambda w, raw: writer_for(w, raw, tmp_path))
     response = client.post("/v1/analyze", files={"file": ("ambiguous_sample.eml", sample)})
     assert response.status_code == 200
-    assert response.json()["verdict"]["label"] == "suspicious"
+    body = response.json()
+    assert body["verdict"]["label"] == "suspicious"
+    assert body["rationale"]["written_by"] == "rules"
 
 
 # --- the cache -------------------------------------------------------------
