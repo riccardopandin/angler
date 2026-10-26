@@ -1,0 +1,38 @@
+Return-Path: <it-support@campus-it-notices.example>
+Received: from mx.ut.edu (mx.ut.edu [104.47.55.12]) by mailbox.ut.edu with ESMTPS id 3K8m1; Tue, 6 Oct 2026 14:02:19 +0000
+Received: from mail.campus-it-notices.example (mail.campus-it-notices.example [198.51.100.27]) by mx.ut.edu with ESMTPS id 8P2c7; Tue, 6 Oct 2026 14:02:11 +0000
+Authentication-Results: mx.ut.edu; spf=pass smtp.mailfrom=campus-it-notices.example; dkim=pass header.d=campus-it-notices.example; dmarc=fail (p=none) header.from=campus-it-notices.example
+From: "IT Support" <it-support@campus-it-notices.example>
+Reply-To: helpdesk@campus-it-help.example
+To: j.doe@example.edu
+Subject: Action required: mailbox storage at 98%
+Date: Tue, 6 Oct 2026 14:02:05 +0000
+Message-ID: <storage-notice-4471@campus-it-notices.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b0undary4471"
+
+--b0undary4471
+Content-Type: text/plain; charset="utf-8"
+
+Your mailbox is at 98% of its storage quota. Incoming mail will be
+held once the quota is reached.
+
+Review your storage and archive old messages by Friday:
+https://campus-it-notices.example/storage
+
+If you have questions, reply to this message.
+
+IT Support
+
+--b0undary4471
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your mailbox is at <b>98%</b> of its storage quota. Incoming mail will be held once the quota is reached.</p>
+<p>Review your storage and archive old messages by Friday:</p>
+<p><a href="https://campus-it-notices.example/storage">https://campus-it-notices.example/storage</a></p>
+<p>If you have questions, reply to this message.</p>
+<p>IT Support</p>
+</body></html>
+
+--b0undary4471--

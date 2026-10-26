@@ -29,11 +29,29 @@ rationale and keeps working.
     uvicorn app.main:app --reload
 
 Then open http://127.0.0.1:8000 and drop `tests/fixtures/phish_m365.eml`
-onto the page.
+onto the page, or use the two built-in samples: **Try a sample phish**
+(scored confidently by the rules) and **Try an ambiguous email** (lands in the
+35-69 band, where the model settles the label).
+
+### The cached model explanation on the public demo
+
+The public demo has no API key, so the ambiguous sample would otherwise show
+only the rules-based rationale. To show what the model writes, run the sample
+once locally with a key in `.env` and commit the result:
+
+    python -m app.capture_sample
+
+This saves the real response to `app/samples/ambiguous.rationale.json`. The
+demo serves it, labelled **AI analysis (cached)**, only when no key is
+configured *and* the upload is byte-for-byte the sample (matched on SHA-256).
+The rules still run live, and a configured key always calls the live model.
+Edit the sample and the saved response stops matching until you re-capture it.
 
 ## API
 
-    POST /v1/parse    multipart form field `file`, a .eml up to 25 MB
+    POST /v1/parse     multipart form field `file`, a .eml up to 25 MB
+    POST /v1/analyze   same upload; adds findings, verdict and rationale
+    GET  /v1/samples/ambiguous   the built-in ambiguous sample (.eml)
     GET  /healthz
 
 The response shape is `ParsedEmail` in `app/models.py`.

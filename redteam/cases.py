@@ -181,7 +181,7 @@ def build_eml(base: dict, case: Case) -> bytes:
         f"Authentication-Results: mx.ut.edu; {base['auth']}\n"
         f"From: {base['from_addr']}\n"
         f"{reply_to}"
-        "To: r.pandin@spartans.ut.edu\n"
+        "To: j.doe@example.edu\n"
         f"Subject: {base['subject']}\n"
         "Date: Mon, 28 Sep 2026 09:00:00 +0000\n"
         f"Message-ID: <{case.name}@example.net>\n"

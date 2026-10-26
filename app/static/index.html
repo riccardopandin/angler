@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Angler — mail forensics</title>
+<meta name="description" content="Angler is a mail forensics console for phishing triage. Drop in a raw .eml and get header authentication, the routing chain, every link with the text that hid it, and a written rationale.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Angler">
+<meta property="og:title" content="Angler — mail forensics for phishing triage">
+<meta property="og:description" content="Drop in a raw .eml and get the evidence needed to judge it: SPF, DKIM and DMARC results, the real routing origin, deceptive links, and a written rationale.">
+<meta property="og:url" content="https://angler.onrender.com">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Angler — mail forensics for phishing triage">
+<meta name="twitter:description" content="Drop in a raw .eml and get the evidence needed to judge it: authentication, routing origin, deceptive links, and a written rationale.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -73,6 +82,16 @@
   .check b{display:block;font-size:13.5px;margin-bottom:2px}
   .check span{font-size:12.5px;color:var(--ink-2)}
 
+  /* results strip */
+  .strip{display:flex;align-items:center;gap:10px 28px;flex-wrap:wrap;margin-top:12px;
+    border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 16px}
+  .stat{display:flex;align-items:baseline;gap:9px;min-width:0}
+  .stat b{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--ok);font-variant-numeric:tabular-nums}
+  .stat span{font-size:12.5px;color:var(--ink-2)}
+  .strip-link{margin-left:auto;font-size:12.5px;font-weight:500;text-decoration:none}
+  .strip-link:hover{text-decoration:underline}
+  @media (max-width:640px){.strip-link{margin-left:0}}
+
   /* status */
   .status{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
   .status.err{color:var(--high)}
@@ -86,7 +105,9 @@
     background:var(--high-soft);border-radius:8px;padding:9px 11px}
 
   /* verdict */
-  .verdict{display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;margin-top:18px;
+  .verdict:focus{outline:none}
+  .verdict:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .verdict{scroll-margin-top:16px;display:flex;gap:18px;align-items:stretch;flex-wrap:wrap;margin-top:18px;
     border:1px solid var(--line-2);border-radius:12px;background:var(--surface);padding:18px 20px;box-shadow:var(--shadow)}
   .verdict.phishing{border-color:var(--high);background:var(--high-soft)}
   .verdict.suspicious{border-color:var(--med);background:var(--med-soft)}
@@ -161,7 +182,9 @@
   pre{margin:0;padding:14px;font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;color:var(--ink-2)}
 
   footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);
-    font-size:12.5px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap}
+    font-size:12.5px;color:var(--ink-3);display:flex;gap:6px 14px;flex-wrap:wrap}
+  footer a{color:var(--ink-2)}
+  footer a:hover{color:var(--accent)}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -175,7 +198,7 @@
       </svg>
     </span>
     <span class="brand">Angler</span>
-    <span class="pill accent">M3 · model layer</span>
+    <span class="pill accent" style="text-transform:none">v1.0</span>
     <span class="spacer"></span>
     <a class="toplink" href="https://github.com/riccardopandin/angler" target="_blank" rel="noopener">Source →</a>
   </header>
@@ -190,6 +213,7 @@
     <div class="actions">
       <button class="btn" id="pick" type="button">Choose a file</button>
       <button class="btn-ghost" id="sample" type="button">Try a sample phish</button>
+      <button class="btn-ghost" id="sample-ambiguous" type="button">Try an ambiguous email</button>
     </div>
   </div>
   <input type="file" id="picker" accept=".eml,.msg,message/rfc822" hidden>
@@ -204,10 +228,18 @@
     <div class="check"><b>Link deception</b><span>What a link says versus where it actually points.</span></div>
   </div>
 
+  <!-- measured results (shown with the empty state) -->
+  <section class="strip" id="strip" aria-label="Measured results">
+    <div class="stat"><b>0</b><span>false positives on 2,750 legitimate emails (SpamAssassin corpus)</span></div>
+    <div class="stat"><b>0/40</b><span>prompt-injection bypasses</span></div>
+    <div class="stat"><b>111</b><span>tests</span></div>
+    <a class="strip-link" href="https://github.com/riccardopandin/angler#readme" target="_blank" rel="noopener">Details in the README →</a>
+  </section>
+
   <!-- results -->
   <div id="out" hidden>
 
-    <div class="verdict" id="verdict">
+    <div class="verdict" id="verdict" tabindex="-1">
       <div class="vscore"><span class="vnum" id="vnum">0</span><span class="vden">RISK / 100</span></div>
       <div class="vbody">
         <div class="vhead"><span class="vtitle" id="vlabel">clean</span><span class="pill" id="vresolved"></span></div>
@@ -270,6 +302,10 @@
   <footer>
     <span>POST /v1/analyze · POST /v1/parse</span>
     <span>Free tier — the first request after idle takes ~50s to wake.</span>
+    <span class="spacer"></span>
+    <span class="byline">Built by Riccardo Pandin ·
+      <a href="https://www.linkedin.com/in/riccardo-pandin" target="_blank" rel="noopener">LinkedIn</a> ·
+      <a href="https://github.com/riccardopandin" target="_blank" rel="noopener">GitHub</a></span>
   </footer>
 </div>
 
@@ -282,7 +318,7 @@ Received: from localhost (unknown [185.243.115.44]) by relay-7t2.xyz with SMTP i
 Authentication-Results: mx.ut.edu; spf=softfail smtp.mailfrom=mail-relay-7t2.xyz; dkim=none; dmarc=fail (p=QUARANTINE) header.from=rnicrosoft-account.com
 From: "Microsoft 365 Security" <security@rnicrosoft-account.com>
 Reply-To: helpdesk@mail-relay-7t2.xyz
-To: r.pandin@spartans.ut.edu
+To: j.doe@example.edu
 Subject: Your password expires in 24 hours
 Date: Mon, 8 Sep 2026 03:14:07 +0300
 Message-ID: <7t2.0091@mail-relay-7t2.xyz>
@@ -295,14 +331,14 @@ Content-Type: text/plain; charset="utf-8"
 Your Microsoft 365 password expires in 24 hours. Sessions on all devices
 will be signed out unless you verify your account immediately.
 
-Verify now: https://login.rnicrosoft-account.com/auth/verify?u=rpandin
+Verify now: https://login.rnicrosoft-account.com/auth/verify?u=jdoe
 
 --b0undary7t2
 Content-Type: text/html; charset="utf-8"
 
 <html><body>
 <p>Your Microsoft 365 password expires in <b>24 hours</b>.</p>
-<p><a href="https://login.rnicrosoft-account.com/auth/verify?u=rpandin">https://login.microsoftonline.com</a></p>
+<p><a href="https://login.rnicrosoft-account.com/auth/verify?u=jdoe">https://login.microsoftonline.com</a></p>
 <p><a href="https://t.mail-relay-7t2.xyz/unsub?id=91">Unsubscribe</a></p>
 <img src="https://t.mail-relay-7t2.xyz/o.gif" width="1" height="1">
 </body></html>
@@ -311,13 +347,25 @@ Content-Type: text/html; charset="utf-8"
 `;
 
 const $ = (id) => document.getElementById(id);
-const drop = $('drop'), picker = $('picker'), out = $('out'), status = $('status'), checks = $('checks');
+const drop = $('drop'), picker = $('picker'), out = $('out'), status = $('status'), checks = $('checks'), strip = $('strip');
 let current = null;
 
 drop.addEventListener('click', (e) => { if (e.target.tagName !== 'BUTTON') picker.click(); });
 drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }});
 $('pick').addEventListener('click', () => picker.click());
 $('sample').addEventListener('click', () => send(new File([SAMPLE], 'sample_phish.eml', {type:'message/rfc822'})));
+// The ambiguous sample lives on the server, so the exact bytes are what get analysed
+// (the server recognises them and can attach the saved model explanation).
+$('sample-ambiguous').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/v1/samples/ambiguous');
+    if (!res.ok) throw new Error('sample unavailable');
+    send(new File([await res.blob()], 'ambiguous_sample.eml', {type:'message/rfc822'}));
+  } catch (err) {
+    out.hidden = true;
+    setStatus('Could not load the sample message. Check your connection and retry.', true);
+  }
+});
 picker.addEventListener('change', () => { if (picker.files[0]) send(picker.files[0]); });
 ['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
@@ -366,6 +414,7 @@ function verdictPill(n) {
 function render(d) {
   current = d;
   checks.hidden = true;
+  strip.hidden = true;
   const email = d.email, auth = d.auth, findings = d.findings, v = d.verdict;
 
   const banner = $('verdict');
@@ -374,7 +423,8 @@ function render(d) {
   $('vlabel').textContent = v.label;
   $('vresolved').textContent = 'resolved by ' + v.resolved_by;
   $('vsub').textContent =
-    v.label === 'phishing'  ? 'The deterministic rules cleared the phishing threshold on their own. No model was asked to classify this message.'
+    v.resolved_by === 'model' ? 'The rules left this message in the ambiguous band, so the model settled the label. The score is the rules\' own.'
+  : v.label === 'phishing'  ? 'The deterministic rules cleared the phishing threshold on their own. No model was asked to classify this message.'
   : v.label === 'suspicious' ? 'Ambiguous. Enough signal to justify a look, not enough to condemn on rules alone.'
   :                            'Nothing fired. Authentication aligned and no lookalike detected.';
 
@@ -397,7 +447,8 @@ function render(d) {
   const r = d.rationale;
   const rpanel = $('rationale-panel');
   if (r) {
-    $('rwriter').textContent = r.written_by === 'claude' ? 'written by model' : 'rules fallback';
+    $('rwriter').textContent = r.written_by === 'claude-cached' ? 'AI analysis (cached)'
+      : r.written_by === 'claude' ? 'written by model' : 'rules fallback';
     $('rsummary').textContent = r.summary;
     $('rsteps').innerHTML = (r.reasoning_steps || []).map(step => '<li>' + esc(step) + '</li>').join('');
     $('raction').innerHTML = '<b>Recommended action:</b> ' + esc(r.recommended_action);
@@ -454,6 +505,16 @@ function render(d) {
 
   $('raw').textContent = JSON.stringify(d, null, 2);
   out.hidden = false;
+  revealVerdict();
+}
+
+// Bring the verdict into view once a sample or upload finishes. Focus moves with it
+// so keyboard and screen-reader users land on the result too.
+function revealVerdict() {
+  const card = $('verdict');
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  card.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+  card.focus({ preventScroll: true });
 }
 </script>
 </body>

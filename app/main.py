@@ -6,13 +6,14 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from dotenv import load_dotenv
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.domains import DomainAgeLookup, get_domain_age_lookup
 from app.llm import RationaleWriter, build_evidence, get_writer, resolve, write_rationale
 from app.models import Analysis, ParsedEmail
 from app.parser import MAX_BYTES, parse_eml
 from app.rules import findings_for, parse_auth_results, verdict_for
+from app.samples import sample_bytes, writer_for
 
 # Local development reads .env. In production Render supplies real
 # environment variables and this call finds nothing, which is correct.
@@ -43,6 +44,15 @@ def healthz() -> dict[str, str]:
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/v1/samples/{name}", include_in_schema=False)
+def sample(name: str) -> Response:
+    """A built-in sample message, so the UI can upload exactly these bytes."""
+    raw = sample_bytes(name)
+    if raw is None:
+        raise HTTPException(status_code=404, detail="No such sample.")
+    return Response(content=raw, media_type="message/rfc822")
 
 
 @app.post("/v1/parse", response_model=ParsedEmail)
@@ -76,7 +86,7 @@ async def analyze(
     verdict = verdict_for(findings)
 
     evidence = build_evidence(email, auth, verdict, findings)
-    rationale = write_rationale(writer, evidence)
+    rationale = write_rationale(writer_for(writer, raw), evidence)
     verdict = resolve(verdict, rationale)
 
     return Analysis(
